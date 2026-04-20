@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventario</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+    <nav class="navbar">
+        <h2>Sistema de Inventario</h2>
+        <div>
+            <span id="saludo"></span>
+            <button class="btn btn-danger btn-sm" onclick="cerrarSesion()">Cerrar Sesión</button>
+        </div>
+    </nav>
+
+    <div class="contenido">
+        <h2>Gestión de Productos</h2>
+
+        <div id="alerta" class="alerta"></div>
+
+        <!-- Formulario agregar / editar -->
+        <div class="formulario-producto">
+            <h3 id="tituloFormulario">Agregar Producto</h3>
+            <input type="hidden" id="productoId">
+            <div class="fila-formulario">
+                <div class="form-group">
+                    <label>Nombre</label>
+                    <input type="text" id="nombre" placeholder="Nombre del producto">
+                </div>
+                <div class="form-group">
+                    <label>Descripción</label>
+                    <input type="text" id="descripcion" placeholder="Descripción opcional">
+                </div>
+                <div class="form-group">
+                    <label>Cantidad</label>
+                    <input type="number" id="cantidad" placeholder="0" min="0">
+                </div>
+                <div class="form-group">
+                    <label>Precio</label>
+                    <input type="number" id="precio" placeholder="0.00" step="0.01" min="0">
+                </div>
+            </div>
+            <div style="margin-top:12px; display:flex; gap:10px;">
+                <button class="btn btn-success" onclick="guardarProducto()">Guardar</button>
+                <button class="btn btn-warning" onclick="limpiarFormulario()" style="display:none" id="btnCancelar">Cancelar</button>
+            </div>
+        </div>
+
+        <!-- Tabla de productos -->
+        <div class="tabla-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Nombre</th>
+                        <th>Descripción</th>
+                        <th>Cantidad</th>
+                        <th>Precio</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="tablaProductos">
+                    <tr><td colspan="6" style="text-align:center; padding:20px; color:#999;">Cargando productos...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const AUTH_URL = 'http://localhost:5000';
+        const INV_URL  = 'http://localhost:5001';
+
+        // Verificar sesion al cargar
+        async function verificarSesion() {
+            try {
+                const res = await fetch(`${AUTH_URL}/verificar`, { credentials: 'include' });
+                if (!res.ok) {
+                    window.location.href = '/login.html';
+                    return;
+                }
+                const data = await res.json();
+                document.getElementById('saludo').textContent = `Hola, ${data.username}`;
+            } catch {
+                window.location.href = '/login.html';
+            }
+        }
+
+        async function cerrarSesion() {
+            await fetch(`${AUTH_URL}/logout`, { method: 'POST', credentials: 'include' });
+            window.location.href = '/login.html';
+        }
+
+        async function cargarProductos() {
+            try {
+                const res = await fetch(`${INV_URL}/productos`);
+                const productos = await res.json();
+                const tbody = document.getElementById('tablaProductos');
+
+                if (productos.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px; color:#999;">No hay productos en el inventario</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = productos.map(p => `
+                    <tr>
+                        <td>${p.id}</td>
+                        <td>${p.nombre}</td>
+                        <td>${p.descripcion || '-'}</td>
+                        <td>${p.cantidad}</td>
+                        <td>$${parseFloat(p.precio).toFixed(2)}</td>
+                        <td class="acciones">
+                            <button class="btn btn-warning btn-sm" onclick="editarProducto(${p.id}, '${p.nombre}', '${p.descripcion || ''}', ${p.cantidad}, ${p.precio})">Editar</button>
+                            <button class="btn btn-danger btn-sm" onclick="eliminarProducto(${p.id})">Eliminar</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch {
+                mostrarAlerta('No se pudo conectar al servicio de inventario', 'error');
+            }
+        }
+
+        async function guardarProducto() {
+            const id = document.getElementById('productoId').value;
+            const body = {
+                nombre:      document.getElementById('nombre').value.trim(),
+                descripcion: document.getElementById('descripcion').value.trim(),
+                cantidad:    parseInt(document.getElementById('cantidad').value) || 0,
+                precio:      parseFloat(document.getElementById('precio').value) || 0
+            };
+
+            if (!body.nombre) { mostrarAlerta('El nombre es requerido', 'error'); return; }
+
+            const url    = id ? `${INV_URL}/productos/${id}` : `${INV_URL}/productos`;
+            const method = id ? 'PUT' : 'POST';
+
+            try {
+                const res = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    mostrarAlerta(data.mensaje, 'exito');
+                    limpiarFormulario();
+                    cargarProductos();
+                } else {
+                    mostrarAlerta(data.error || 'Error al guardar', 'error');
+                }
+            } catch {
+                mostrarAlerta('Error al conectar con el servidor', 'error');
+            }
+        }
+
+        function editarProducto(id, nombre, descripcion, cantidad, precio) {
+            document.getElementById('productoId').value   = id;
+            document.getElementById('nombre').value       = nombre;
+            document.getElementById('descripcion').value  = descripcion;
+            document.getElementById('cantidad').value     = cantidad;
+            document.getElementById('precio').value       = precio;
+            document.getElementById('tituloFormulario').textContent = 'Editar Producto';
+            document.getElementById('btnCancelar').style.display = 'inline-block';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        async function eliminarProducto(id) {
+            if (!confirm('¿Estás seguro de eliminar este producto?')) return;
+            try {
+                const res = await fetch(`${INV_URL}/productos/${id}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (res.ok) {
+                    mostrarAlerta(data.mensaje, 'exito');
+                    cargarProductos();
+                } else {
+                    mostrarAlerta('Error al eliminar', 'error');
+                }
+            } catch {
+                mostrarAlerta('Error al conectar con el servidor', 'error');
+            }
+        }
+
+        function limpiarFormulario() {
+            document.getElementById('productoId').value  = '';
+            document.getElementById('nombre').value      = '';
+            document.getElementById('descripcion').value = '';
+            document.getElementById('cantidad').value    = '';
+            document.getElementById('precio').value      = '';
+            document.getElementById('tituloFormulario').textContent = 'Agregar Producto';
+            document.getElementById('btnCancelar').style.display = 'none';
+        }
+
+        function mostrarAlerta(mensaje, tipo) {
+            const alerta = document.getElementById('alerta');
+            alerta.className = `alerta alerta-${tipo}`;
+            alerta.textContent = mensaje;
+            alerta.style.display = 'block';
+            setTimeout(() => alerta.style.display = 'none', 3000);
+        }
+
+        verificarSesion();
+        cargarProductos();
+    </script>
+</body>
+</html>

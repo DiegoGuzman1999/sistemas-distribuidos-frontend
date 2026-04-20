@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  frontend:
+    build: .
+    container_name: frontend-inventario
+    ports:
+      - "3000:3000"
+    networks:
+      - red-inventario
+
+networks:
+  red-inventario:
+    external: true
