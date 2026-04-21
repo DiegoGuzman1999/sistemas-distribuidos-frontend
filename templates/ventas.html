@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Histórico de Ventas</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .resumen-cards {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 30px;
+        }
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 24px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        }
+        .card h3 { font-size: 14px; color: #777; margin-bottom: 10px; }
+        .card .numero { font-size: 32px; font-weight: bold; color: #2c3e50; }
+        .card.verde .numero { color: #2ecc71; }
+        .card.azul .numero  { color: #3498db; }
+        .card.naranja .numero { color: #f39c12; }
+        .seccion { margin-bottom: 30px; }
+        .seccion h2 { color: #2c3e50; margin-bottom: 16px; }
+        .form-venta {
+            background: white;
+            padding: 24px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            margin-bottom: 30px;
+            display: flex;
+            gap: 14px;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+        .form-venta .form-group { margin-bottom: 0; flex: 1; min-width: 160px; }
+        select {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 15px;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <h2>Sistema de Inventario</h2>
+        <div>
+            <span id="saludo"></span>
+            <a href="/inventario.html" style="color:white; margin-right:16px; font-size:14px;">Inventario</a>
+            <button class="btn btn-danger btn-sm" onclick="cerrarSesion()">Cerrar Sesión</button>
+        </div>
+    </nav>
+
+    <div class="contenido">
+
+        <div id="alerta" class="alerta"></div>
+
+        <!-- Resumen -->
+        <div class="resumen-cards">
+            <div class="card azul">
+                <h3>Total de Ventas</h3>
+                <div class="numero" id="totalVentas">—</div>
+            </div>
+            <div class="card verde">
+                <h3>Total Ingresos</h3>
+                <div class="numero" id="totalIngresos">—</div>
+            </div>
+            <div class="card naranja">
+                <h3>Productos Vendidos</h3>
+                <div class="numero" id="totalProductos">—</div>
+            </div>
+        </div>
+
+        <!-- Registrar venta -->
+        <div class="seccion">
+            <h2>Registrar Venta</h2>
+            <div class="form-venta">
+                <div class="form-group">
+                    <label>Producto</label>
+                    <select id="selectProducto"></select>
+                </div>
+                <div class="form-group">
+                    <label>Cantidad</label>
+                    <input type="number" id="cantidadVenta" placeholder="1" min="1" style="width:100%; padding:10px 14px; border:1px solid #ddd; border-radius:6px; font-size:15px;">
+                </div>
+                <button class="btn btn-success" onclick="registrarVenta()">Registrar Venta</button>
+            </div>
+        </div>
+
+        <!-- Top productos -->
+        <div class="seccion">
+            <h2>Top 5 Productos más Vendidos</h2>
+            <div class="tabla-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Producto</th>
+                            <th>Unidades Vendidas</th>
+                            <th>Ingresos Generados</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaTop"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Historial completo -->
+        <div class="seccion">
+            <h2>Historial Completo de Ventas</h2>
+            <div class="tabla-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Producto</th>
+                            <th>Cantidad</th>
+                            <th>Precio Unitario</th>
+                            <th>Total</th>
+                            <th>Fecha</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaVentas">
+                        <tr><td colspan="6" style="text-align:center; padding:20px; color:#999;">Cargando ventas...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const AUTH_URL = 'http://localhost:5000';
+        const INV_URL  = 'http://localhost:5001';
+
+        async function verificarSesion() {
+            try {
+                const res = await fetch(`${AUTH_URL}/verificar`, { credentials: 'include' });
+                if (!res.ok) { window.location.href = '/login.html'; return; }
+                const data = await res.json();
+                document.getElementById('saludo').textContent = `Hola, ${data.username}`;
+            } catch { window.location.href = '/login.html'; }
+        }
+
+        async function cerrarSesion() {
+            await fetch(`${AUTH_URL}/logout`, { method: 'POST', credentials: 'include' });
+            window.location.href = '/login.html';
+        }
+
+        async function cargarProductos() {
+            const res = await fetch(`${INV_URL}/productos`);
+            const productos = await res.json();
+            const select = document.getElementById('selectProducto');
+            select.innerHTML = productos.map(p =>
+                `<option value="${p.id}">${p.nombre} (Stock: ${p.cantidad})</option>`
+            ).join('');
+        }
+
+        async function cargarReporte() {
+            const res = await fetch(`${INV_URL}/ventas/reporte`);
+            const data = await res.json();
+
+            document.getElementById('totalVentas').textContent = data.resumen.total_ventas;
+            document.getElementById('totalIngresos').textContent = `$${data.resumen.total_ingresos.toFixed(2)}`;
+            document.getElementById('totalProductos').textContent = data.resumen.total_productos_vendidos;
+
+            const tablaTop = document.getElementById('tablaTop');
+            if (data.top_productos.length === 0) {
+                tablaTop.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px; color:#999;">Sin ventas aún</td></tr>';
+            } else {
+                tablaTop.innerHTML = data.top_productos.map((p, i) => `
+                    <tr>
+                        <td>${i + 1}</td>
+                        <td>${p.nombre}</td>
+                        <td>${p.total_vendido}</td>
+                        <td>$${p.total_ingresos.toFixed(2)}</td>
+                    </tr>
+                `).join('');
+            }
+        }
+
+        async function cargarVentas() {
+            const res = await fetch(`${INV_URL}/ventas`);
+            const ventas = await res.json();
+            const tbody = document.getElementById('tablaVentas');
+
+            if (ventas.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px; color:#999;">No hay ventas registradas</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = ventas.map(v => `
+                <tr>
+                    <td>${v.id}</td>
+                    <td>${v.nombre_producto}</td>
+                    <td>${v.cantidad_vendida}</td>
+                    <td>$${v.precio_unitario.toFixed(2)}</td>
+                    <td>$${v.total.toFixed(2)}</td>
+                    <td>${new Date(v.fecha_venta).toLocaleString('es-CO')}</td>
+                </tr>
+            `).join('');
+        }
+
+        async function registrarVenta() {
+            const producto_id = parseInt(document.getElementById('selectProducto').value);
+            const cantidad_vendida = parseInt(document.getElementById('cantidadVenta').value);
+
+            if (!cantidad_vendida || cantidad_vendida < 1) {
+                mostrarAlerta('Ingresa una cantidad válida', 'error'); return;
+            }
+
+            try {
+                const res = await fetch(`${INV_URL}/ventas`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ producto_id, cantidad_vendida })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    mostrarAlerta(data.mensaje, 'exito');
+                    cargarProductos();
+                    cargarReporte();
+                    cargarVentas();
+                } else {
+                    mostrarAlerta(data.error, 'error');
+                }
+            } catch { mostrarAlerta('Error al conectar con el servidor', 'error'); }
+        }
+
+        function mostrarAlerta(mensaje, tipo) {
+            const alerta = document.getElementById('alerta');
+            alerta.className = `alerta alerta-${tipo}`;
+            alerta.textContent = mensaje;
+            alerta.style.display = 'block';
+            setTimeout(() => alerta.style.display = 'none', 3000);
+        }
+
+        verificarSesion();
+        cargarProductos();
+        cargarReporte();
+        cargarVentas();
+    </script>
+</body>
+</html>
