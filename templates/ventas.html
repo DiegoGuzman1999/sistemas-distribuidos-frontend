@@ -167,7 +167,7 @@
             const data = await res.json();
 
             document.getElementById('totalVentas').textContent = data.resumen.total_ventas;
-            document.getElementById('totalIngresos').textContent = `$${data.resumen.total_ingresos.toFixed(2)}`;
+            document.getElementById('totalIngresos').textContent = `$${data.resumen.total_ingresos.toLocaleString('es-CO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             document.getElementById('totalProductos').textContent = data.resumen.total_productos_vendidos;
 
             const tablaTop = document.getElementById('tablaTop');
@@ -179,7 +179,7 @@
                         <td>${i + 1}</td>
                         <td>${p.nombre}</td>
                         <td>${p.total_vendido}</td>
-                        <td>$${p.total_ingresos.toFixed(2)}</td>
+                        <td>$${p.total_ingresos.toLocaleString('es-CO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                     </tr>
                 `).join('');
             }
@@ -200,8 +200,8 @@
                     <td>${v.id}</td>
                     <td>${v.nombre_producto}</td>
                     <td>${v.cantidad_vendida}</td>
-                    <td>$${v.precio_unitario.toFixed(2)}</td>
-                    <td>$${v.total.toFixed(2)}</td>
+                    <td>$${v.precio_unitario.toLocaleString('es-CO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                    <td>$${v.total.toLocaleString('es-CO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                     <td>${new Date(v.fecha_venta).toLocaleString('es-CO')}</td>
                 </tr>
             `).join('');

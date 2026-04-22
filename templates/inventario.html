@@ -113,7 +113,7 @@
                         <td>${p.nombre}</td>
                         <td>${p.descripcion || '-'}</td>
                         <td>${p.cantidad}</td>
-                        <td>$${parseFloat(p.precio).toFixed(2)}</td>
+                        <td>$${parseFloat(p.precio).toLocaleString('es-CO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                         <td class="acciones">
                             <button class="btn btn-warning btn-sm" onclick="editarProducto(${p.id}, '${p.nombre}', '${p.descripcion || ''}', ${p.cantidad}, ${p.precio})">Editar</button>
                             <button class="btn btn-danger btn-sm" onclick="eliminarProducto(${p.id})">Eliminar</button>
