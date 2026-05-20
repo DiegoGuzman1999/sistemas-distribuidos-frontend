@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auditoría de Operaciones</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .filtros {
+            background: white;
+            padding: 20px 24px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+            margin-bottom: 24px;
+            display: flex;
+            gap: 14px;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+
+        .filtros .form-group {
+            margin-bottom: 0;
+            min-width: 160px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            color: white;
+        }
+
+        .badge-CREATE {
+            background: #2ecc71;
+        }
+
+        .badge-UPDATE {
+            background: #f39c12;
+        }
+
+        .badge-DELETE {
+            background: #e74c3c;
+        }
+
+        .badge-READ {
+            background: #3498db;
+        }
+
+        .descripcion-cell {
+            max-width: 320px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav class="navbar">
+        <h2>Sistema de Inventarios</h2>
+        <div>
+            <span id="saludo"></span>
+            <a href="/inventario.html" class="btn btn-success btn-sm"
+                style="text-decoration:none; margin-right:8px;">Inventario</a>
+            <a href="/ventas.html" class="btn btn-warning btn-sm"
+                style="text-decoration:none; margin-right:8px;">Ventas</a>
+            <button class="btn btn-danger btn-sm" onclick="cerrarSesion()">Cerrar Sesión</button>
+        </div>
+    </nav>
+
+    <div class="contenido">
+        <h2>Auditoría de Operaciones</h2>
+
+        <div id="alerta" class="alerta"></div>
+
+        <!-- Filtros -->
+        <div class="filtros">
+            <div class="form-group">
+                <label>Entidad</label>
+                <select id="filtroEntidad" class="form-group input"
+                    style="width:100%;padding:10px 14px;border:1px solid #ddd;border-radius:6px;font-size:15px;">
+                    <option value="">Todas</option>
+                    <option value="productos">Productos</option>
+                    <option value="ventas">Ventas</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Acción</label>
+                <select id="filtroAccion" class="form-group input"
+                    style="width:100%;padding:10px 14px;border:1px solid #ddd;border-radius:6px;font-size:15px;">
+                    <option value="">Todas</option>
+                    <option value="CREATE">CREATE</option>
+                    <option value="UPDATE">UPDATE</option>
+                    <option value="DELETE">DELETE</option>
+                    <option value="READ">READ</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Usuario</label>
+                <input type="text" id="filtroUsuario" placeholder="Username">
+            </div>
+            <div class="form-group">
+                <label>Límite</label>
+                <input type="number" id="filtroLimite" value="50" min="1" max="500" style="width:80px;">
+            </div>
+            <div class="form-group">
+                <button class="btn btn-primary" onclick="cargarAuditoria()" style="width:auto;">
+                    Buscar
+                </button>
+            </div>
+        </div>
+
+        <!-- Tabla -->
+        <div class="tabla-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Fecha</th>
+                        <th>Usuario</th>
+                        <th>Acción</th>
+                        <th>Entidad</th>
+                        <th>ID Entidad</th>
+                        <th>Descripción</th>
+                    </tr>
+                </thead>
+                <tbody id="tablaAuditoria">
+                    <tr>
+                        <td colspan="7" style="text-align:center;padding:20px;color:#999;">
+                            Cargando registros...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const AUTH_URL = '/auth';
+        const INV_URL = '/inv';
+
+        async function verificarSesion() {
+            try {
+                const res = await fetch(`${AUTH_URL}/verificar`, {
+                    credentials: 'include',
+                });
+                if (!res.ok) { window.location.href = '/login.html'; return; }
+                const data = await res.json();
+                document.getElementById('saludo').textContent = `Hola, ${data.username}`;
+            } catch { window.location.href = '/login.html'; }
+        }
+
+        async function cerrarSesion() {
+            await fetch(`${AUTH_URL}/logout`, {
+                method: 'POST',
+                credentials: 'include',
+            });
+            window.location.href = '/login.html';
+        }
+
+        async function cargarAuditoria() {
+            const entidad = document.getElementById('filtroEntidad').value;
+            const accion = document.getElementById('filtroAccion').value;
+            const usuario = document.getElementById('filtroUsuario').value.trim();
+            const limite = document.getElementById('filtroLimite').value;
+
+            const params = new URLSearchParams();
+            if (entidad) params.append('entidad', entidad);
+            if (accion) params.append('accion', accion);
+            if (usuario) params.append('usuario', usuario);
+            if (limite) params.append('limite', limite);
+
+            try {
+                const res = await fetch(`${INV_URL}/auditoria?${params.toString()}`, {
+                    credentials: 'include',
+                });
+                if (!res.ok) { mostrarAlerta('Error al cargar auditoría', 'error'); return; }
+                const registros = await res.json();
+                renderTabla(registros);
+            } catch {
+                mostrarAlerta('Error al conectar con el servidor', 'error');
+            }
+        }
+
+        function renderTabla(registros) {
+            const tbody = document.getElementById('tablaAuditoria');
+            if (registros.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:#999;">' +
+                    'No hay registros que coincidan con los filtros</td></tr>';
+                return;
+            }
+            tbody.innerHTML = registros.map(r => `
+            <tr>
+                <td>${r.id_auditoria}</td>
+                <td>${new Date(r.fecha).toLocaleString('es-CO')}</td>
+                <td>${r.username}</td>
+                <td><span class="badge badge-${r.accion}">${r.accion}</span></td>
+                <td>${r.entidad}</td>
+                <td>${r.entidad_id ?? '—'}</td>
+                <td class="descripcion-cell" title="${r.descripcion ?? ''}">${r.descripcion ?? '—'}</td>
+            </tr>
+        `).join('');
+        }
+
+        function mostrarAlerta(mensaje, tipo) {
+            const alerta = document.getElementById('alerta');
+            alerta.className = `alerta alerta-${tipo}`;
+            alerta.textContent = mensaje;
+            alerta.style.display = 'block';
+            setTimeout(() => alerta.style.display = 'none', 3000);
+        }
+
+        verificarSesion();
+        cargarAuditoria();
+    </script>
+</body>
+
+</html>
