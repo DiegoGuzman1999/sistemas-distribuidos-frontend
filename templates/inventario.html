@@ -1,21 +1,24 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Inventario</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
+
 <body>
 
     <nav class="navbar">
         <h2>Sistema de Inventarios</h2>
         <div>
             <span id="saludo"></span>
-            <a href="/ventas.html" class="btn btn-success btn-sm" style="text-decoration:none; margin-right:8px;">Histórico de Ventas</a>
+            <a href="/ventas.html" class="btn btn-success btn-sm"
+                style="text-decoration:none; margin-right:8px;">Histórico de Ventas</a>
             <button class="btn btn-danger btn-sm" onclick="cerrarSesion()">Cerrar Sesión</button>
         </div>
-    </nav> 
+    </nav>
 
     <div class="contenido">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
@@ -48,7 +51,8 @@
             </div>
             <div style="margin-top:12px; display:flex; gap:10px;">
                 <button class="btn btn-success" onclick="guardarProducto()">Guardar</button>
-                <button class="btn btn-warning" onclick="limpiarFormulario()" style="display:none" id="btnCancelar">Cancelar</button>
+                <button class="btn btn-warning" onclick="limpiarFormulario()" style="display:none"
+                    id="btnCancelar">Cancelar</button>
             </div>
         </div>
 
@@ -66,7 +70,9 @@
                     </tr>
                 </thead>
                 <tbody id="tablaProductos">
-                    <tr><td colspan="6" style="text-align:center; padding:20px; color:#999;">Cargando productos...</td></tr>
+                    <tr>
+                        <td colspan="6" style="text-align:center; padding:20px; color:#999;">Cargando productos...</td>
+                    </tr>
                 </tbody>
             </table>
         </div>
@@ -74,12 +80,14 @@
 
     <script>
         const AUTH_URL = '/auth';
-        const INV_URL  = '/inv';
+        const INV_URL = '/inv';
 
         // Verificar sesion al cargar
         async function verificarSesion() {
             try {
-                const res = await fetch(`${AUTH_URL}/verificar`, { credentials: 'include' });
+                const res = await fetch(`${AUTH_URL}/verificar`, {
+                    credentials: 'include'
+                });
                 if (!res.ok) {
                     window.location.href = '/login.html';
                     return;
@@ -92,13 +100,18 @@
         }
 
         async function cerrarSesion() {
-            await fetch(`${AUTH_URL}/logout`, { method: 'POST', credentials: 'include' });
+            await fetch(`${AUTH_URL}/logout`, {
+                method: 'POST',
+                credentials: 'include'
+            });
             window.location.href = '/login.html';
         }
 
         async function cargarProductos() {
             try {
-                const res = await fetch(`${INV_URL}/productos`);
+                const res = await fetch(`${INV_URL}/productos`, {
+                    credentials: 'include'
+                });
                 const productos = await res.json();
                 const tbody = document.getElementById('tablaProductos');
 
@@ -113,7 +126,7 @@
                         <td>${p.nombre}</td>
                         <td>${p.descripcion || '-'}</td>
                         <td>${p.cantidad}</td>
-                        <td>$${parseFloat(p.precio).toLocaleString('es-CO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                        <td>$${parseFloat(p.precio).toFixed(2)}</td>
                         <td class="acciones">
                             <button class="btn btn-warning btn-sm" onclick="editarProducto(${p.id}, '${p.nombre}', '${p.descripcion || ''}', ${p.cantidad}, ${p.precio})">Editar</button>
                             <button class="btn btn-danger btn-sm" onclick="eliminarProducto(${p.id})">Eliminar</button>
@@ -128,21 +141,22 @@
         async function guardarProducto() {
             const id = document.getElementById('productoId').value;
             const body = {
-                nombre:      document.getElementById('nombre').value.trim(),
+                nombre: document.getElementById('nombre').value.trim(),
                 descripcion: document.getElementById('descripcion').value.trim(),
-                cantidad:    parseInt(document.getElementById('cantidad').value) || 0,
-                precio:      parseFloat(document.getElementById('precio').value) || 0
+                cantidad: parseInt(document.getElementById('cantidad').value) || 0,
+                precio: parseFloat(document.getElementById('precio').value) || 0
             };
 
             if (!body.nombre) { mostrarAlerta('El nombre es requerido', 'error'); return; }
 
-            const url    = id ? `${INV_URL}/productos/${id}` : `${INV_URL}/productos`;
+            const url = id ? `${INV_URL}/productos/${id}` : `${INV_URL}/productos`;
             const method = id ? 'PUT' : 'POST';
 
             try {
                 const res = await fetch(url, {
                     method,
                     headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
                     body: JSON.stringify(body)
                 });
                 const data = await res.json();
@@ -159,11 +173,11 @@
         }
 
         function editarProducto(id, nombre, descripcion, cantidad, precio) {
-            document.getElementById('productoId').value   = id;
-            document.getElementById('nombre').value       = nombre;
-            document.getElementById('descripcion').value  = descripcion;
-            document.getElementById('cantidad').value     = cantidad;
-            document.getElementById('precio').value       = precio;
+            document.getElementById('productoId').value = id;
+            document.getElementById('nombre').value = nombre;
+            document.getElementById('descripcion').value = descripcion;
+            document.getElementById('cantidad').value = cantidad;
+            document.getElementById('precio').value = precio;
             document.getElementById('tituloFormulario').textContent = 'Editar Producto';
             document.getElementById('btnCancelar').style.display = 'inline-block';
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -172,7 +186,10 @@
         async function eliminarProducto(id) {
             if (!confirm('¿Estás seguro de eliminar este producto?')) return;
             try {
-                const res = await fetch(`${INV_URL}/productos/${id}`, { method: 'DELETE' });
+                const res = await fetch(`${INV_URL}/productos/${id}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
                 const data = await res.json();
                 if (res.ok) {
                     mostrarAlerta(data.mensaje, 'exito');
@@ -186,11 +203,11 @@
         }
 
         function limpiarFormulario() {
-            document.getElementById('productoId').value  = '';
-            document.getElementById('nombre').value      = '';
+            document.getElementById('productoId').value = '';
+            document.getElementById('nombre').value = '';
             document.getElementById('descripcion').value = '';
-            document.getElementById('cantidad').value    = '';
-            document.getElementById('precio').value      = '';
+            document.getElementById('cantidad').value = '';
+            document.getElementById('precio').value = '';
             document.getElementById('tituloFormulario').textContent = 'Agregar Producto';
             document.getElementById('btnCancelar').style.display = 'none';
         }
@@ -207,4 +224,5 @@
         cargarProductos();
     </script>
 </body>
+
 </html>
